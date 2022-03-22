@@ -206,17 +206,26 @@ def display_maps():
 
 def restaurant_view():
     # dishes per restaurant
-    st.write("Add Restaurant View content here...")
     resto_filter = st.sidebar.text_input("Restarant filter:")
     restolist = []
     if resto_filter != "":
         restolist = restaurant_revenue.loc[restaurant_revenue['name'].str.contains(resto_filter, case=False), 'name'].tolist()
     else:
-        restolist = restaurant_revenue['name']
+        restolist = restaurant_revenue['name'].tolist()
+    restolist.sort()
     resto_sel = st.sidebar.selectbox('Select a restaurant:', restolist)
-    resto_id = restaurant_revenue.loc[restaurant_revenue['name'] == resto_sel, 'data_id'].tolist()
+    resto_id_lst = restaurant_revenue.loc[restaurant_revenue['name'] == resto_sel, 'data_id'].tolist()
+    if len(resto_id_lst) > 1:
+        resto_addr = restaurant_revenue.loc[restaurant_revenue['name'] == resto_sel, 'street'].tolist()
+        resto_addr_sel = st.sidebar.radio('Multiple found with this name, select address:', resto_addr)
+        resto_id = restaurant_revenue.loc[(restaurant_revenue['name'] == resto_sel) & (restaurant_revenue['street'] == resto_addr_sel), 'data_id'].tolist()[0]
+    elif len(resto_id_lst) == 1:
+        resto_id = resto_id_lst[0]
     print(resto_id)
-    st.write(f"This Restaurant has data_id: {resto_id}")
+    st.write(f"{resto_sel} overview:")
+    st.write(f"Street: {restaurant_revenue.loc[restaurant_revenue['data_id'] == resto_id, 'street'].tolist()[0]}")
+    st.write(f"City: {restaurant_revenue.loc[restaurant_revenue['data_id'] == resto_id, 'city'].tolist()[0]}")
+    st.write(f"data_id: {resto_id}")
 
 
 def customer_page():
