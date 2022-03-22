@@ -1,4 +1,3 @@
-import this
 from xml.dom import UserDataHandler
 import numpy as np
 import streamlit as st
@@ -54,7 +53,7 @@ df_allergy, df_allergy_customer, df_order, df_order_item, df_orderables, df_rest
 
 modus = st.sidebar.selectbox('Select mode:', ('Map', 'Restaurant View', 'Customer page'))
 
-def test():
+def testTim():
     print("blas")
 
 def display_maps():
@@ -208,6 +207,17 @@ def display_maps():
 def restaurant_view():
     # dishes per restaurant
     st.write("Add Restaurant View content here...")
+    resto_filter = st.sidebar.text_input("Restarant filter:")
+    restolist = []
+    if resto_filter != "":
+        restolist = restaurant_revenue.loc[restaurant_revenue['name'].str.contains(resto_filter, case=False), 'name'].tolist()
+    else:
+        restolist = restaurant_revenue['name']
+    resto_sel = st.sidebar.selectbox('Select a restaurant:', restolist)
+    resto_id = restaurant_revenue.loc[restaurant_revenue['name'] == resto_sel, 'data_id'].tolist()
+    print(resto_id)
+    st.write(f"This Restaurant has data_id: {resto_id}")
+
 
 def customer_page():
     # Allergies
