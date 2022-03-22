@@ -2,31 +2,33 @@ import pandas as pd
 from geopy.geocoders import Nominatim
 
 allergy_customer = pd.read_csv(
-    "../data/ODL_ALLERGY_CUSTOMER.csv",
+    "./data/ODL_ALLERGY_CUSTOMER.csv",
     usecols=["allergy_id","customer_id"])
 allergy = pd.read_csv(
-    "../data/ODL_ALLERGY.csv",
+    "./data/ODL_ALLERGY.csv",
     usecols=["data_id","severity", "name"])
 restaurant = pd.read_csv(
-    "../data/ODL_RESTAURANT.csv",
+    "./data/ODL_RESTAURANT.csv",
     usecols=[
         "data_id", "name", "opening_hours",
         "city", "street", "phone_number",
         "creation_date", "email"]
 )
 order = pd.read_csv(
-    "../data/ODL_ORDER.csv",
+    "./data/ODL_ORDER.csv",
     usecols=["restaurant_id", "creation_date", "customer_id", "data_id"])
 orderables = pd.read_csv(
-    "../data/ODL_ORDERABLES.csv",
+    "./data/ODL_ORDERABLES.csv",
     usecols=["price", "restaurant_id", "data_id", "name"])
 order_item = pd.read_csv(
-    "../data/ODL_ORDER_ITEM.csv",
+    "./data/ODL_ORDER_ITEM.csv",
     usecols=["order_id", "amount", "data_id", "orderable_id"])
 
 ## Preprocessing of ALLERGY
 # Removes duplicates in allergy table
 allergy = allergy.drop_duplicates(subset="data_id")
+
+allergy.to_csv("./data/allergy.csv")
 
 ## Preprocessing og ALLERGY_CUSTOMER
 # corrects the data (missing values in customer_id are in allergy_id)
@@ -50,13 +52,15 @@ allergy_customer = allergy_customer[
     ~allergy_customer["customer_id"].isin(customer_to_remove)
 ]
 
+allergy_customer.to_csv("./data/allergy_customer.csv")
+
 ## Preprocessing of ORDER_ITEM
 
 # Joins table ORDERABLES along orderable_id
 order_item = order_item.join(orderables.set_index("data_id"), on="orderable_id")
 
 # Joins ORDER alons order_id
-order.item = order_item.join(order.set_index('data_id'), on="order_id")
+order_item = order_item.join(order.loc[:, order.columns !="restaurant_id"].set_index('data_id'), on="order_id")
 
 # Adds total amount per order item
 order_item["total"] = order_item["amount"] * order_item["price"]
@@ -64,6 +68,8 @@ order_item["total"] = order_item["amount"] * order_item["price"]
 # Adds restaurant info to order_item
 rest = restaurant[['data_id' , 'city']]
 order_item = order_item.join(rest.set_index('data_id'), on="restaurant_id")
+
+order_item.to_csv("./data/order_item.csv")
 
 ## Preprocessing of ORDER
 # Compute total amount spend per order
@@ -80,17 +86,19 @@ order["is_allergic"] = order["customer_id"].map(lambda x: (x in allergic_custome
 
 # Cleans the date
 order[['creation_date_only', 'creation_time']] = order['creation_date'].str.split(' ', 1, expand=True)
-pd.to_datetime(order_df['creation_date_only'],format="%x")
+pd.to_datetime(order['creation_date_only'],format="%x")
 order['month_year'] = pd.to_datetime(order['creation_date_only']).dt.strftime('%y/%m')
 order['month'] = pd.to_datetime(order['creation_date_only']).dt.strftime('%m')
+
+order.to_csv("./data/order.csv")
 
 ## RESTAURANT TABLE
 # Get missing cities
 geolocator = Nominatim(user_agent="geoapiExercises")
 
 def get_city(row):
-    if row["city"].isna():
-        place = geolocator.geocode(f"{row["street"]}, San Fransisco")
+    if pd.isna(row["city"]):
+        place = geolocator.geocode(f"{row['street']}, San Fransisco")
         if place:
             row["city"] = "San Fransisco"
         else:
@@ -113,18 +121,21 @@ def get_address_latlon(row):
         row["lon"] = None
     return row
 
-restaurant["address"] = (df_restaurant['street'].map(str) + ', ' + df_restaurant['city'].map(str))
+restaurant["address"] = (restaurant['street'].map(str) + ', ' + restaurant['city'].map(str))
 
 restaurant = restaurant.apply(get_address_latlon, axis=1)
 
 # Add revenue of restaurant
-resto_value = order.groupby(['restaurant_id'])['order_value'].sum().sort_values(ascending=False)
+resto_value = order.groupby(['restaurant_id'])['total'].sum().sort_values(ascending=False)
 resto_value = resto_value.to_frame()
-restaurant = restaurant.join(resto_value['order_value'], on='data_id',)
-restaurant = restaurant.rename(columns={"order_value":"revenue"})
+restaurant = restaurant.join(resto_value['total'], on='data_id',)
+restaurant = restaurant.rename(columns={"total":"revenue"})
 
+restaurant.to_csv("./data/restaurants.csv")
 
 ## Preprocessing of ORDERABLES
 
 orderables['cost'] = orderables['price'].mean()
 orderables['profit'] = orderables['price'] - orderables['cost']
+
+orderables.to_csv("./data/orderables.csv")
