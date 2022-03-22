@@ -125,11 +125,20 @@ restaurant["address"] = (restaurant['street'].map(str) + ', ' + restaurant['city
 
 restaurant = restaurant.apply(get_address_latlon, axis=1)
 
-# Add revenue of restaurant
+ # Add revenue of restaurant
 resto_value = order.groupby(['restaurant_id'])['total'].sum().sort_values(ascending=False)
 resto_value = resto_value.to_frame()
 restaurant = restaurant.join(resto_value['total'], on='data_id',)
 restaurant = restaurant.rename(columns={"total":"revenue"})
+
+restaurant.loc[:,'cost_of_goods'] = resto_value['total'] * 0.15
+restaurant.loc[:,'cost_of_labor_month'] = (resto_value['total'].mean() * 0.41) / 12
+restaurant.loc[:,'fixed_costs_month'] = (resto_value['total'].mean() * 0.36) / 12
+restaurant.loc[:,'cost_of_labor_total'] = (resto_value['total'].mean() * 0.41)
+restaurant.loc[:,'fixed_costs_total'] = (resto_value['total'].mean() * 0.36)
+restaurant.loc['total_PNL'] = restaurant['revenue'] - (restaurant['cost_of_goods'] + restaurant['fixed_costs_total'] + restaurant['cost_of_labor_total'])
+
+
 
 restaurant.to_csv("./data/restaurants.csv")
 
