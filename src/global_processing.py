@@ -43,7 +43,7 @@ def correct_data(row):
     return row
 
 # set of allergic customer
-allergic_customer = set(allergy_customer["customer_id"].tolist())
+allergic_customer = set(allergy_customer["customer_id"].to_list())
 
 # Removes customer that do not have an order in the order table
 allergy_customer = allergy_customer.apply(correct_data, axis = 1)
