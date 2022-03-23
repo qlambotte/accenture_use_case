@@ -6,55 +6,31 @@ import pandas as pd
 # relativedelta to add days or years
 from dateutil.relativedelta import relativedelta
 import datetime as dt
+import dishgraph
 
 
 @st.cache
 def load_dfs_in_cache():
-    # read vals from csv
-    df_allergy = pd.read_csv('ODL_ALLERGY.csv')
-    df_allergy_customer = pd.read_csv('ODL_ALLERGY_CUSTOMER.csv')
-    df_order = pd.read_csv('ODL_ORDER.csv')
-    df_order_item = pd.read_csv('ODL_ORDER_ITEM.csv')
-    df_orderables = pd.read_csv('ODL_ORDERABLES.csv')
-    df_restaurant = pd.read_csv('ODL_RESTAURANT_latlon.csv')
-
-    # remove unwanted cols
-    df_allergy = df_allergy.drop(columns=['id', '_rid', '_self', '_etag', '_attachments', '_ts'])
-    df_allergy_customer = df_allergy_customer.drop(columns=['id', '_rid', '_self', '_etag', '_attachments', '_ts'])
-    df_order = df_order.drop(columns=['id', '_rid', '_self', '_etag', '_attachments', '_ts'])
-    df_order_item = df_order_item.drop(columns=['id', '_rid', '_self', '_etag', '_attachments', '_ts', 'Column_useless'])
-    df_orderables = df_orderables.drop(columns=['id', '_rid', '_self', '_etag', '_attachments', '_ts'])
-    # df_restaurant = df_restaurant.drop(columns=['id', '_rid', '_self', '_etag', '_attachments', '_ts'])
-    # df_restaurant = df_restaurant.drop(df_restaurant.columns[0], axis=1)
-
-    # modified code from Yass
-    df_order[['creation_date_only', 'creation_time']] = df_order['creation_date'].str.split(' ', 1, expand=True)
-    pd.to_datetime(df_order['creation_date_only'], format="%x")
-    df_order.groupby(['customer_id'])['restaurant_id'].count().sort_values(ascending=True).to_frame()['restaurant_id'].mean()
-    order_item_df_value = df_order_item.join(df_orderables[['price', 'name']], on='orderable_id')
-    order_item_df_value["order_value"] = order_item_df_value['price'].mul(order_item_df_value['amount'])
-    orders_value = order_item_df_value.groupby(['order_id'])['order_value'].sum().sort_values(ascending=False).to_frame()
-    order_value_df = df_order.join(orders_value['order_value'], on='data_id')
-    order_value_df['month_year'] = pd.to_datetime(order_value_df['creation_date_only']).dt.strftime('%y/%m')
-    order_value_df['month'] = pd.to_datetime(order_value_df['creation_date_only']).dt.strftime('%m')
-    resto_value_df = order_value_df.groupby(['restaurant_id'])['order_value'].sum().sort_values(ascending=False)
-    resto_value_df = resto_value_df.to_frame()
-    restaurant_revenue = df_restaurant.join(resto_value_df['order_value'], on='data_id',)
-    restaurant_revenue = restaurant_revenue.rename(columns={"order_value": "revenue"})
+    """This function loads all used dataframes and variables
+    in cache for optimizing performance."""
+    df_allergy = pd.read_csv('./data/allergy.csv')
+    df_allergy_customer = pd.read_csv('./data/allergy_customer.csv')
+    df_order = pd.read_csv('./data/order.csv')
+    df_order_item = pd.read_csv('./data/order_item.csv')
+    df_orderables = pd.read_csv('./data/orderables.csv')
+    df_restaurant = pd.read_csv('./data/restaurants.csv')
 
     df_order['creation_date'] = df_order['creation_date'].apply(pd.to_datetime)
-    restaurant_revenue = restaurant_revenue.replace('None', np.nan).dropna()
-    restaurant_revenue['lat'] = restaurant_revenue['lat'].astype(float)
-    restaurant_revenue['lon'] = restaurant_revenue['lon'].astype(float)
+    df_restaurant = df_restaurant.replace('None', np.nan).dropna()
+    df_restaurant['lat'] = df_restaurant['lat'].astype(float)
+    df_restaurant['lon'] = df_restaurant['lon'].astype(float)
+    customers_list = set(df_order["customer_id"].to_list())
 
-    return df_allergy, df_allergy_customer, df_order, df_order_item, df_orderables, df_restaurant, restaurant_revenue
+    return df_allergy, df_allergy_customer, df_order, df_order_item, df_orderables, df_restaurant, customers_list
 
-df_allergy, df_allergy_customer, df_order, df_order_item, df_orderables, df_restaurant, restaurant_revenue = load_dfs_in_cache()
+df_allergy, df_allergy_customer, df_order, df_order_item, df_orderables, df_restaurant, customers_list = load_dfs_in_cache()
 
 modus = st.sidebar.selectbox('Select mode:', ('Map', 'Restaurant View', 'Customer page'))
-
-def testTim():
-    print("blas")
 
 def display_maps():
     city = st.sidebar.radio("Please select a City:",
@@ -86,10 +62,10 @@ def display_maps():
                                       index=['date']))
 
     st.write(f'Showing: {feature} for {city}')
-    max_rev = restaurant_revenue['revenue'].max()
+    max_rev = df_restaurant['revenue'].max()
 
     selected_layers = [pdk.Layer("ColumnLayer",
-                       data=restaurant_revenue,
+                       data=df_restaurant,
                        get_position=['lon', 'lat'],
                        radius=80,
                        elevation_scale=0.1,
@@ -99,7 +75,7 @@ def display_maps():
                        get_fill_color=[f"255*(1 - revenue / {max_rev}), 255*(revenue / {max_rev}), 0", 140],
                        elevation_range=[0, 1000]),
                        pdk.Layer("ColumnLayer",
-                       data=restaurant_revenue,
+                       data=df_restaurant,
                        get_position=['lon', 'lat'],
                        radius=80,
                        elevation_scale=0.1,
@@ -109,7 +85,7 @@ def display_maps():
                        get_fill_color=[f"255*(1 - revenue / {max_rev}), 255*(revenue / {max_rev}), 0", 140],
                        elevation_range=[0, 1000]),
                        pdk.Layer("ColumnLayer",
-                       data=restaurant_revenue,
+                       data=df_restaurant,
                        get_position=['lon', 'lat'],
                        radius=10000,
                        elevation_scale=20,
@@ -120,7 +96,7 @@ def display_maps():
                        elevation_range=[0, 1000],
                        extruded=True,),
                        pdk.Layer("ColumnLayer",
-                       data=restaurant_revenue,
+                       data=df_restaurant,
                        get_position=['lon', 'lat'],
                        radius=10000,
                        elevation_scale=20,
@@ -206,31 +182,115 @@ def display_maps():
 
 def restaurant_view():
     # dishes per restaurant
-    resto_filter = st.sidebar.text_input("Restarant filter:")
+    resto_filter = st.sidebar.text_input("Restarant filter (optional):")
     restolist = []
     if resto_filter != "":
-        restolist = restaurant_revenue.loc[restaurant_revenue['name'].str.contains(resto_filter, case=False), 'name'].tolist()
+        restolist = df_restaurant.loc[df_restaurant['name'].str.contains(resto_filter, case=False), 'name'].tolist()
     else:
-        restolist = restaurant_revenue['name'].tolist()
+        restolist = df_restaurant['name'].tolist()
     restolist.sort()
     resto_sel = st.sidebar.selectbox('Select a restaurant:', restolist)
-    resto_id_lst = restaurant_revenue.loc[restaurant_revenue['name'] == resto_sel, 'data_id'].tolist()
+    resto_id_lst = df_restaurant.loc[df_restaurant['name'] == resto_sel, 'data_id'].tolist()
     if len(resto_id_lst) > 1:
-        resto_addr = restaurant_revenue.loc[restaurant_revenue['name'] == resto_sel, 'street'].tolist()
+        resto_addr = df_restaurant.loc[df_restaurant['name'] == resto_sel, 'street'].tolist()
         resto_addr_sel = st.sidebar.radio('Multiple found with this name, select address:', resto_addr)
-        resto_id = restaurant_revenue.loc[(restaurant_revenue['name'] == resto_sel) & (restaurant_revenue['street'] == resto_addr_sel), 'data_id'].tolist()[0]
+        resto_id = df_restaurant.loc[(df_restaurant['name'] == resto_sel) & (df_restaurant['street'] == resto_addr_sel), 'data_id'].tolist()[0]
     elif len(resto_id_lst) == 1:
         resto_id = resto_id_lst[0]
-    print(resto_id)
-    st.write(f"{resto_sel} overview:")
-    st.write(f"Street: {restaurant_revenue.loc[restaurant_revenue['data_id'] == resto_id, 'street'].tolist()[0]}")
-    st.write(f"City: {restaurant_revenue.loc[restaurant_revenue['data_id'] == resto_id, 'city'].tolist()[0]}")
-    st.write(f"data_id: {resto_id}")
+    st.markdown(f"## {resto_sel}:")
+    st.markdown(f"**Adress**: {df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'street'].tolist()[0]}, "
+    f"{df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'city'].tolist()[0]}  \n"
+    f"**data_id**: {resto_id}")
 
+    revenue_by_month = df_order.loc[df_order['restaurant_id'] == resto_id].groupby(['month_year'])['total'].sum().to_frame().sort_values('month_year')
+    st.markdown("### Revenue per month in US$")
+    st.line_chart(revenue_by_month)
 
 def customer_page():
     # Allergies
-    st.write("Add Customer page content here...")
+    customer = st.sidebar.selectbox("Select a customer.", customers_list)
+    st.header(
+        f"Details on customer {customer}"
+    )
+
+    def buisiness_insights(customer_id, data):
+        clv = data["total"].sum()
+        crp = data["total"].count()
+        cab = round(clv / crp, 2)
+        return {
+            "clv": clv,
+            "crp": crp,
+            "cab": cab
+            }
+    orders = df_order[df_order["customer_id"] == customer]
+    st.subheader("Buisiness informations.")
+    bi = buisiness_insights(customer, orders)
+    col1, col2, col3 = st.columns(3)
+    col1.metric(label="Customer Lifetime Value", value=f"{bi['clv']}$")
+    col2.metric(label="Customer repeat purchase", value=f"{bi['crp']} orders")
+    col3.metric(label="Customer average order", value=f"{bi['cab']}$/o")
+
+    st.subheader("Allergy information")
+    allergies = df_allergy_customer[df_allergy_customer["customer_id"] == customer]["allergy_id"].to_list()
+    if len(allergies) == 0:
+        st.write("This customer has no known allergy.")
+    elif len(allergies) == 1:
+        al = df_allergy[df_allergy["data_id"] == allergies[0]]
+        name, severity = al["name"][allergies[0]], al["severity"][allergies[0]]
+        st.write(f"This customer is allergic to {name}, which has {severity} severity.")
+    else:
+        st.write("This customer has the following allergies:")
+        aller = df_allergy[df_allergy["data_id"].isin(allergies)][["name", "severity"]].reset_index(drop=True)
+        aller.index += 1
+        st.table(aller)
+    st.subheader("Spending details")
+    restaurants = set(orders["restaurant_id"].to_list())
+    num_orders = orders.shape[0]
+    if num_orders == 1:
+        orders_string = "one order"
+        restaurant_string = "one restaurant"
+    else:
+        orders_string = f"{num_orders} orders"
+        num_restaurants = len(restaurants)
+        if num_restaurants > 1:
+            restaurant_string = f"{num_restaurants} restaurants"
+    st.write(f"Customer {customer} made {orders_string} in {restaurant_string}. You may find the details here.")
+    restaurants_names = df_restaurant[df_restaurant["data_id"].isin(restaurants)]["name"].to_list()
+    restaurants_names.append("All")
+    rest = st.selectbox("Select a restaurant", restaurants_names)
+    if rest == "All":
+        tot = round(orders["total"].sum(), 2)
+        st.write(f"Overall, customer {customer} spent {tot}$.")
+    else:
+        rest_id = restaurants.intersection(set(df_restaurant[df_restaurant["name"] == rest]["data_id"].to_list()))
+        orders = orders[orders["restaurant_id"] == rest_id.pop()]
+        tot = round(orders["total"].sum(), 2)
+        no_orders = orders.shape[0]
+        if no_orders == 1:
+            orders_string = "one order"
+        else:
+            orders_string = f"{no_orders} orders"
+        st.write(f"Customer {customer} spent {tot}$ in restaurant {rest}, with {orders_string}.")
+    orders_id = orders["data_id"].to_list()
+    order_to_detail = st.selectbox("Select an order", orders_id)
+    order_details = df_order_item[df_order_item["order_id"] == order_to_detail]
+    restaurant_id = order_details["restaurant_id"].iloc[0]
+    print(restaurant_id)
+    restaurant_details = df_restaurant[df_restaurant["data_id"] == restaurant_id]
+    restaurant_name = restaurant_details["name"].iloc[0]
+    city = restaurant_details["city"].iloc[0]
+    date = order_details["creation_date"].iloc[0]
+    n = order_details.shape[0]
+    if n == 1:
+        no_items = "one item"
+    else:
+        no_items = f"{n} items"
+    tot = round(order_details["total"].sum(), 2)
+    st.write(f"This order was made in {restaurant_name}, {city}, on {date}, for a total of {tot}$. It contains {no_items}.")
+    df = order_details[["name", "price", "amount", "total"]]
+    df = df.reset_index(drop=True)
+    df.index += 1
+    st.write(df)
 
 if modus == 'Map':
     display_maps()
