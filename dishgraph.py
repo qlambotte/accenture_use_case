@@ -68,7 +68,7 @@ class DishGrapher:
         # create the figure
 
         fig, ax = plt.subplots()
-        sns.histplot(x='price', data=self.sales[self.sales['name']==dish], hue='city', binwidth=width)
+        sns.histplot(x='price', data=self.sales[self.sales['name']==dish], hue='city', binwidth=width, palette=['blue', 'red'])
         plt.title(f'Distribution on of the price of {dish} \n Average price: ${avg_price}')
         plt.ylabel('Amount sold')
         plt.xlabel('Price of dish')
