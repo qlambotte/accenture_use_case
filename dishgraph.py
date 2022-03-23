@@ -9,6 +9,12 @@ class DishGrapher:
         self.sales = pd.read_csv('./data/order_item.csv', usecols=['restaurant_id', 'name', 'amount', 'price', 'total', 'city']) 
         ### load df_sales [amount, revenue, name, city, restaurant_id]
         ### load df_sales by restaurant [restaurant_id, name, amount, revenue]
+    
+    def rename_col(self, col: str):
+        if col == 'amount':
+            return 'amount sold'
+        if col == 'total':
+            return 'revenue'
 
     def popular(self, city: str , col: str):
         # need amount, name, city
@@ -40,7 +46,7 @@ class DishGrapher:
         fig, ax = plt.subplots()
         sns.barplot(y='abbrev_name', x=col, data=am_table, color='salmon')
         plt.ylabel('name of orderable')
-        plt.xlabel(f'{col}')
+        plt.xlabel(self.rename_col(self.rename_col(col)))
 
         return fig
 
@@ -66,10 +72,17 @@ class DishGrapher:
                 width = min(width, prices[i+1]-prices[i])
 
         # create the figure
+        pal = []
+        if len(self.sales[(self.sales['name']==dish) & (self.sales['city'] == 'New York')])>0:
+            pal.append('blue')
+        if len(self.sales[(self.sales['name']==dish) & (self.sales['city'] == 'San Francisco')])>0:
+            pal.append('red')
+        
 
         fig, ax = plt.subplots()
-        sns.histplot(x='price', data=self.sales[self.sales['name']==dish], hue='city', binwidth=width, palette=['blue', 'red'])
-        plt.title(f'Distribution on of the price of {dish} \n Average price: ${avg_price}')
+        sns.histplot(x='price', data=self.sales[self.sales['name']==dish], hue='city', binwidth=width, palette=pal)
+        title = dish[:50]+'...' if len(dish)>50 else dish
+        plt.title(f'Distribution on of the price of {title} \n Average price: ${avg_price}')
         plt.ylabel('Amount sold')
         plt.xlabel('Price of dish')
         
@@ -84,6 +97,13 @@ class DishTrendGrapher:
         self.dish_per_rest = pd.read_csv('./data/dish_per_rest.csv').set_index(['restaurant_id','name'])
         ### load dataframe resampled by month
 
+    
+    def rename_col(self, col: str):
+        if col == 'amount':
+            return 'amount sold'
+        if col == 'total':
+            return 'revenue'
+
     def dish_trend(self, dish: str, col: str):
         """
         function that returns a graph of a dish for total or amount over all restaurants
@@ -92,11 +112,11 @@ class DishTrendGrapher:
         :param col: str that is either 'total' or 'amount;
         """
         fig, ax = plt.subplots()
-        self.dish_per_month.loc[dish][col+'_NY'].plot(color='blue', label = 'New York')
-        self.dish_per_month.loc[dish][col+'_SF'].plot(color='red', label = 'San Francisco')
-        plt.title(dish)
+        self.dish_per_month.loc[dish].set_index('creation_date')[col+'_NY'].plot(color='blue', label = 'New York')
+        self.dish_per_month.loc[dish].set_index('creation_date')[col+'_SF'].plot(color='red', label = 'San Francisco')
+        plt.title(dish[:50]+'...' if len(dish)>50 else dish)
         plt.xlabel('date')
-        plt.ylabel(f'{col}')
+        plt.ylabel(self.rename_col(col))
         return fig
 
     def dish_trend_per_rest(self, dish:str, col: str, rest_id: int):
@@ -111,7 +131,7 @@ class DishTrendGrapher:
         self.dish_per_rest.loc[rest_id, dish].set_index('creation_date')[col].plot(color='blue')
         plt.title(dish)
         plt.xlabel('date')
-        plt.ylabel(col)
+        plt.ylabel(self.rename_col(col))
         return fig
 
     
