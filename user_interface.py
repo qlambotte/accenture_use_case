@@ -303,11 +303,17 @@ def dishes_map():
         st.write(trender.dish_trend(dish, col))
 
 if modus == 'Global View':
+    st.header("Global analysis")
     col1, col2, col3 = st.columns(3)
     rev = round(order["total"].sum())
     col1.metric(label="Gross revenue", value=f"{rev}$")
     col2.metric(label="Number of customer", value=len(customers_list))
-    col3.metric(label="CLV", value=3)
+    col3.metric(label="Brand loyalty", value=5.78)
+    col1, col2, col3 = st.columns(3)
+
+    col2.metric(label="SG&A", value="92.5%")
+    col1.metric(label="Net revenue", value="+1.6M$")
+    col3.metric(label="Unprofitable restaurants", value=188)
 
     choice = st.selectbox("Select an option", ["View maps", "View insights on dishes"])
     if "maps" in choice:
