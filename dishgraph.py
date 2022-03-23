@@ -79,14 +79,43 @@ class DishGrapher:
 
 class DishTrendGrapher:
 
-    def init__(self, dish):
-        self.dish = dish
+    def __init__(self):
+        self.dish_per_month = pd.read_csv('./data/dish_per_month.csv').set_index('name')
+        self.dish_per_rest = pd.read_csv('./data/dish_per_rest.csv').set_index(['restaurant_id','name'])
         ### load dataframe resampled by month
-        pass
 
+    def dish_trend(self, dish: str, col: str):
+        """
+        function that returns a graph of a dish for total or amount over all restaurants
 
-    def dish_trend(self, restaurant_id: int, col: str):
-        pass
+        :param dish: str that represents dish
+        :param col: str that is either 'total' or 'amount;
+        """
+        fig, ax = plt.subplots()
+        self.dish_per_month.loc[dish][col+'_NY'].plot(color='blue', label = 'New York')
+        self.dish_per_month.loc[dish][col+'_SF'].plot(color='red', label = 'San Francisco')
+        plt.title(dish)
+        plt.xlabel('date')
+        plt.ylabel(f'{col}')
+        return fig
+
+    def dish_trend_per_rest(self, dish:str, col: str, rest_id: int):
+        """
+        function that returns a graph of a dish for total or amount for a single restaurant
+
+        :param dish: str that represents dish
+        :param col: str that is either 'total' or 'amount
+        :param rest_id: int that represents the restaurant id
+        """
+        fig, ax = plt.subplots()
+        self.dish_per_rest.loc[rest_id, dish].set_index('creation_date')[col].plot(color='blue')
+        plt.title(dish)
+        plt.xlabel('date')
+        plt.ylabel(col)
+        return fig
+
+    
+
 
 
     
