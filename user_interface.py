@@ -52,7 +52,6 @@ def customer_page():
             "cab": cab
             }
     orders = order[order["customer_id"]==customer]
-    st.subheader("Buisiness informations.")
     bi = buisiness_insights(customer, orders)
     col1, col2, col3 = st.columns(3)
     col1.metric(label="Customer Lifetime Value", value=f"{bi['clv']}$")
@@ -64,8 +63,8 @@ def customer_page():
     if len(allergies) == 0:
         st.write("This customer has no known allergy.")
     elif len(allergies) == 1:
-        al = allergy[allergy["data_id"]==allergies[0]]
-        name, severity = al["name"][allergies[0]], al["severity"][allergies[0]]
+        al = allergy[allergy["data_id"].isin(allergies)]
+        name, severity = al["name"].iloc[0], al["severity"].iloc[0]
         st.write(f"This customer is allergic to {name}, which has {severity} severity.")
     else:
         st.write(f"This customer has the following allergies:")
@@ -104,7 +103,6 @@ def customer_page():
     order_to_detail = st.selectbox("Select an order", orders_id)
     order_details = order_item[order_item["order_id"]==order_to_detail]
     restaurant_id = order_details["restaurant_id"].iloc[0]
-    print(restaurant_id)
     restaurant_details = restaurant[restaurant["data_id"]==restaurant_id]
     restaurant_name = restaurant_details["name"].iloc[0]
     city = restaurant_details["city"].iloc[0]
