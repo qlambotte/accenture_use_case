@@ -148,3 +148,16 @@ orderables['cost'] = orderables['price'].mean()
 orderables['profit'] = orderables['price'] - orderables['cost']
 
 orderables.to_csv("./data/orderables.csv")
+
+
+## Creating dataframes for trends in dishes
+
+order_item['creation_date'] = pd.to_datetime(order_item['creation_date'])
+s = order_item[order_item['city']=='New York'][['creation_date', 'amount', 'total', 'name']].groupby('name').resample('M', on='creation_date').sum()
+t = order_item[order_item['city']=='San Francisco'][['creation_date', 'amount', 'total', 'name']].groupby('name').resample('M', on='creation_date').sum()
+dish_per_month = s.join(t, lsuffix='_NY', rsuffix='_SF')
+dish_per_month.to_csv('./data/dish_per_month.csv')
+
+dish_per_rest = order_item[['creation_date', 'amount', 'total', 'name', 'restaurant_id']].groupby(['restaurant_id', 'name']).resample('M', on='creation_date').sum()
+dish_per_rest.to_csv('./data/dish_per_rest.csv')
+
