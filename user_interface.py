@@ -7,6 +7,7 @@ import pandas as pd
 # relativedelta to add days or years
 from dateutil.relativedelta import relativedelta
 import datetime as dt
+from dishgraph import DishGrapher, DishTrendGrapher
 
 
 @st.cache
@@ -18,17 +19,170 @@ def load_dfs_in_cache():
     order_item = pd.read_csv('./data/order_item.csv')
     orderables = pd.read_csv('./data/orderables.csv')
     restaurant = pd.read_csv('./data/restaurants.csv')
-    return allergy, allergy_customer, order, order_item, orderables, restaurant
+    dish_per_month = pd.read_csv('./data/dish_per_month.csv')
+    dish_per_rest = pd.read_csv('./data/dish_per_rest.csv')
+    order['creation_date'] = order['creation_date'].apply(pd.to_datetime)
+    restaurant = restaurant.replace('None', np.nan).dropna()
+    restaurant['lat'] = restaurant['lat'].astype(float)
+    restaurant['lon'] = restaurant['lon'].astype(float)
+    customers_list = set(order["customer_id"].to_list())
+    return allergy, allergy_customer, order, order_item, orderables, restaurant, dish_per_month, dish_per_rest, customers_list
 
-allergy, allergy_customer, order, order_item, orderables, restaurant = load_dfs_in_cache()
+allergy, allergy_customer, order, order_item, orderables, restaurant, dish_per_month, dish_per_rest, customers_list = load_dfs_in_cache()
 
-modus = st.sidebar.selectbox('Select mode:', ('Map', 'Restaurant View', 'Customer page'))
+modus = st.sidebar.selectbox('Select mode:', ('Global View', 'Restaurant View', 'Customer page'))
 
 def test():
     print("blas")
 
 def display_maps():
-    pass
+    city = st.sidebar.radio("Please select a City:",
+                            ("USA", 'New York', 'San Francisco', 'Both'))
+
+    feature = st.sidebar.radio('What feature do you want to display?',
+                               ('Restaurant revenue (max)', 'Restaurant revenue (min)'))
+
+    date_range_sel = st.sidebar.selectbox('Select a date range:',
+                                          ('All', 'Year', 'Month', 'Week'))
+    if date_range_sel == 'Year':
+        date_range = 365
+    elif date_range_sel == 'Month':
+        date_range = 30
+    elif date_range_sel == 'Week':
+        date_range = 7
+
+    if date_range_sel != 'All':
+        # Range selector
+        format = 'MMM DD, YYYY'  # format output
+        start_date = order['creation_date'].min().date()
+        end_date = order['creation_date'].max().date() - relativedelta(days=date_range)
+
+        slider = st.sidebar.slider('Select start date:', min_value=start_date, value=start_date, max_value=end_date, format=format)
+        # check in table
+        st.sidebar.table(pd.DataFrame([[slider, slider + relativedelta(days=date_range)]],
+                                      columns=['selected start',
+                                               'end'],
+                                      index=['date']))
+
+    st.write(f'Showing: {feature} for {city}')
+    max_rev = restaurant['revenue'].max()
+
+    selected_layers = [pdk.Layer("ColumnLayer",
+                       data=restaurant,
+                       get_position=['lon', 'lat'],
+                       radius=80,
+                       elevation_scale=0.1,
+                       auto_highlight=True,
+                       pickable=True,
+                       get_elevation=['revenue'],
+                       get_fill_color=[f"255*(1 - revenue / {max_rev}), 255*(revenue / {max_rev}), 0", 140],
+                       elevation_range=[0, 1000]),
+                       pdk.Layer("ColumnLayer",
+                       data=restaurant,
+                       get_position=['lon', 'lat'],
+                       radius=80,
+                       elevation_scale=0.1,
+                       auto_highlight=True,
+                       pickable=True,
+                       get_elevation=[f'{max_rev} - revenue'],
+                       get_fill_color=[f"255*(1 - revenue / {max_rev}), 255*(revenue / {max_rev}), 0", 140],
+                       elevation_range=[0, 1000]),
+                       pdk.Layer("ColumnLayer",
+                       data=restaurant,
+                       get_position=['lon', 'lat'],
+                       radius=10000,
+                       elevation_scale=20,
+                       auto_highlight=True,
+                       pickable=True,
+                       get_elevation=['revenue'],
+                       get_fill_color=[f"255*(1 - revenue / {max_rev}), 255*(revenue / {max_rev}), 0", 140],
+                       elevation_range=[0, 1000],
+                       extruded=True,),
+                       pdk.Layer("ColumnLayer",
+                       data=restaurant,
+                       get_position=['lon', 'lat'],
+                       radius=10000,
+                       elevation_scale=20,
+                       auto_highlight=True,
+                       pickable=True,
+                       get_elevation=[f'{max_rev} - revenue'],
+                       get_fill_color=[f"255*(1 - revenue / {max_rev}), 255*(revenue / {max_rev}), 0", 140],
+                       elevation_range=[0, 1000],
+                       extruded=True,)]
+
+    tooltip = {
+        "html": "<b>{name}</b><br>Has a revenue of: <b>{revenue}</b> $",
+        "style": {"background": "grey", "color": "white", "font-family": '"Helvetica Neue", Arial', "z-index": "10000"},
+    }
+
+    if city == 'New York':
+        if feature == 'Restaurant revenue (max)':
+            thislayer = selected_layers[0]
+        else:
+            thislayer = selected_layers[1]
+        st.pydeck_chart(pdk.Deck(map_style="mapbox://styles/mapbox/light-v9",
+                                 initial_view_state={"latitude": 40.709381,
+                                                     "longitude": -74.008828,
+                                                     "zoom": 10,
+                                                     "pitch": 60},
+                                 tooltip=tooltip,
+                                 layers=thislayer
+                                 ))
+    elif city == 'San Francisco':
+        if feature == 'Restaurant revenue (max)':
+            thislayer = selected_layers[0]
+        else:
+            thislayer = selected_layers[1]
+        st.pydeck_chart(pdk.Deck(map_style="mapbox://styles/mapbox/light-v9",
+                                 initial_view_state={"latitude": 37.754772,
+                                                     "longitude": -122.441767,
+                                                     "zoom": 11,
+                                                     "pitch": 60},
+                                 tooltip=tooltip,
+                                 layers=thislayer
+                                 ))
+    elif city == 'USA':
+        if feature == 'Restaurant revenue (max)':
+            thislayer = selected_layers[2]
+        else:
+            thislayer = selected_layers[3]
+        st.pydeck_chart(pdk.Deck(map_style="mapbox://styles/mapbox/light-v9",
+                                initial_view_state={"latitude": 39.462830,
+                                                    "longitude": -99.509115,
+                                                    "zoom": 3,
+                                                    "pitch": 60},
+                                tooltip=tooltip,
+                                layers=thislayer))
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            if feature == 'Restaurant revenue (max)':
+                thislayer = selected_layers[0]
+            else:
+                thislayer = selected_layers[1]
+            st.pydeck_chart(pdk.Deck(map_style="mapbox://styles/mapbox/light-v9",
+                                     initial_view_state={"latitude": 40.709381,
+                                                         "longitude": -74.008828,
+                                                         "zoom": 10,
+                                                         "pitch": 60},
+                                     tooltip=tooltip,
+                                     layers=thislayer
+                                     ))
+        with col2:
+            if feature == 'Restaurant revenue (max)':
+                thislayer = selected_layers[0]
+            else:
+                thislayer = selected_layers[1]
+            st.pydeck_chart(pdk.Deck(map_style="mapbox://styles/mapbox/light-v9",
+                                     initial_view_state={"latitude": 37.754772,
+                                                         "longitude": -122.441767,
+                                                         "zoom": 10,
+                                                         "pitch": 60},
+                                     tooltip=tooltip,
+                                     layers=thislayer
+                                     ))
+
+
 def restaurant_view():
     # dishes per restaurant
     st.write("Add Restaurant View content here...")
@@ -119,8 +273,47 @@ def customer_page():
     df.index +=1
     st.write(df)
 
-if modus == 'Map':
-    display_maps()
+def dishes_map():
+
+    st.header('Information on Dishes')
+
+    city = st.sidebar.selectbox("Select a city.", ['New York', 'San Francisco'])
+    col_type = st.sidebar.selectbox("Select by type", ['amount sold', 'revenue'])
+    if col_type == 'amount sold':
+        col = 'amount'
+    else:
+        col = 'total'
+    graph = DishGrapher()
+
+    st.subheader(f'The most popular dishes by {col_type} in {city}')
+    table_dish = graph.popular(city, col)
+    list_of_dishes = list(table_dish.index)
+    st.write(graph.popular(city, col))
+
+    dish = st.sidebar.selectbox("Select by dish", list_of_dishes)
+    abbrev_dish  = dish[:50]+'...' if len(dish)>50 else dish
+    st.subheader(f'Facts about {abbrev_dish}')
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write(graph.price_distributer(dish))
+    with col2:
+        trender = DishTrendGrapher()
+        st.write(trender.dish_trend(dish, col))
+
+if modus == 'Global View':
+    col1, col2, col3 = st.columns(3)
+    rev = round(order["total"].sum())
+    col1.metric(label="Gross revenue", value=f"{rev}$")
+    col2.metric(label="Number of customer", value=len(customers_list))
+    col3.metric(label="CLV", value=3)
+
+    choice = st.selectbox("Select an option", ["View maps", "View insights on dishes"])
+    if "maps" in choice:
+        display_maps()
+    else:
+        dishes_map()
 elif modus == 'Restaurant View':
     restaurant_view()
 elif modus == 'Customer page':
