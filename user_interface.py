@@ -43,7 +43,7 @@ def customer_page():
         f"Details on customer {customer}"
     )
     def buisiness_insights(customer_id, data):
-        clv = data["total"].sum()
+        clv = round(data["total"].sum(),2)
         crp = data["total"].count()
         cab = round(clv/crp,2)
         return {
