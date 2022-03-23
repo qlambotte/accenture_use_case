@@ -14,6 +14,9 @@ class DishGrapher:
         # need amount, name, city
         """
         Function that inputs a city name and outputs a dataframe of most popular dishes by revenue
+
+        :params city: str either 'New York' or 'San Francisco'
+        :param col: str either 'amount' or 'total
         """
         df = self.sales[self.sales['city']==city]
         return df[[col,'name']].groupby('name').sum().sort_values(col,ascending=False)
@@ -22,7 +25,7 @@ class DishGrapher:
     def popular_by_restaurant(self, restaurant_id: int, col: str):
         # needs amount, name, restaurant_id
         """
-        Function that given an restaurant id return a tabel of dishes sorted by amount sold
+        Function that given an restaurant id  and column and returns a tabel of dishes sorted by column sold
 
         :param restaurant_id: int that represent restaurant_id
         :param col: str represent either amount ('amount') or revenue ('total')
@@ -76,15 +79,17 @@ class DishGrapher:
 
 class DishTrendGrapher:
 
-    def init__():
+    def init__(self, dish):
+        self.dish = dish
         ### load dataframe resampled by month
         pass
 
-    def dish_trend_by_revenue(restaurant_id: int):
+
+    def dish_trend(self, restaurant_id: int, col: str):
         pass
 
-    def dish_trend_by_amount(restaurant_id: int):
-        pass
+
+    
 
     
 
