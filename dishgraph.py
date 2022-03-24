@@ -40,7 +40,7 @@ class DishGrapher:
         am_table = self.sales.groupby(['restaurant_id', 'name']).sum().loc[restaurant_id][[col]]
         am_table = am_table.reset_index()
         am_table['abbrev_name'] = am_table['name'].map(lambda x: x[:70]+'...' if len(x)>70 else x)
-        am_table[['abbrev_name', col]].set_index('abbrev_name').sort_values(col, ascending=False)
+        am_table = am_table[['abbrev_name', col]].sort_values(col, ascending=False)
 
 
         fig, ax = plt.subplots()
