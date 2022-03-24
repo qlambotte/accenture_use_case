@@ -30,10 +30,8 @@ def load_dfs_in_cache():
 
 allergy, allergy_customer, order, order_item, orderables, restaurant, dish_per_month, dish_per_rest, customers_list = load_dfs_in_cache()
 
-modus = st.sidebar.selectbox('Select mode:', ('Global View', 'Restaurant View', 'Customer page'))
+modus = st.sidebar.selectbox('Select mode:', ('Global View', 'Restaurant View', 'Customer View'))
 
-def test():
-    print("blas")
 
 def display_maps():
     city = st.sidebar.radio("Please select a City:",
@@ -184,8 +182,122 @@ def display_maps():
 
 
 def restaurant_view():
-    # dishes per restaurant
-    st.write("Add Restaurant View content here...")
+    resto_filter = st.sidebar.text_input("Restarant filter (optional):")
+    restolist = []
+    if resto_filter != "":
+        restolist = restaurant.loc[restaurant['name'].str.contains(resto_filter, case=False), 'name'].tolist()
+    else:
+        restolist = restaurant['name'].tolist()
+    restolist.sort()
+    resto_sel = st.sidebar.selectbox('Select a restaurant:', restolist)
+    resto_id_lst = restaurant.loc[restaurant['name'] == resto_sel, 'data_id'].tolist()
+    if len(resto_id_lst) > 1:
+        resto_addr = restaurant.loc[restaurant['name'] == resto_sel, 'street'].tolist()
+        resto_addr_sel = st.sidebar.radio('Multiple found with this name, select address:', resto_addr)
+        resto_id = int(restaurant.loc[(restaurant['name'] == resto_sel) & (restaurant['street'] == resto_addr_sel), 'data_id'].tolist()[0])
+    elif len(resto_id_lst) == 1:
+        resto_id = int(resto_id_lst[0])
+    st.markdown(f"## {resto_sel}:")
+    st.markdown(f"**Adress**: {restaurant.loc[restaurant['data_id'] == resto_id, 'street'].tolist()[0]}, "
+    f"{restaurant.loc[restaurant['data_id'] == resto_id, 'city'].tolist()[0]}  \n"
+    f"**data_id**: {resto_id}")
+
+    st.markdown("***")
+    tot_col1, tot_col2, tot_col3 = st.columns(3)
+
+    def restaurant_revenue_overall(x):  # cost of goods
+        restaurant_revenue_overall = restaurant.loc[restaurant['data_id'] == x, 'revenue']
+        return restaurant_revenue_overall.sum()
+
+    resto_rev_overall = round(restaurant_revenue_overall(resto_id),2)
+    tot_col1.metric(label="Lifetime gross revenue:", value=f"{resto_rev_overall}$")
+
+    cog = restaurant.loc[restaurant['data_id'] == resto_id, 'cost_of_goods'].iloc[0]
+    colb = restaurant.loc[restaurant['data_id'] == resto_id, 'cost_of_labor_total'].iloc[0]
+    fct = restaurant.loc[restaurant['data_id'] == resto_id, 'fixed_costs_total'].iloc[0]
+    roc = round((cog + colb + fct), 2)
+    tot_col2.metric(label="Revenue operational cost profit:", value=f"{roc}$")
+
+    tnp = round((resto_rev_overall - roc), 2)
+    tot_col3.metric(label="Total net profit:", value=f"{tnp}$")
+
+    st.markdown("***")
+
+    def revenue_one_month(x, y):
+        revenue_by_month = order.loc[order['restaurant_id'] == x].groupby(['month_year'])['total'].sum().to_frame().sort_values('month_year')
+        revenue_one_month = revenue_by_month.loc[y, 'total']
+        return revenue_one_month
+
+    months_set = set(order.loc[order['restaurant_id'] == resto_id, 'month_year'].tolist())
+    sorted_months_set = sorted(months_set)
+    if len(sorted_months_set) > 1:
+        st.markdown("### Selection of monthly revenue:")
+        month_year = st.select_slider(" ", sorted_months_set)
+        revenue_month = revenue_one_month(resto_id, month_year)
+        st.markdown(f"### Revenue on {month_year} was {str(round(revenue_month,2))}$")
+    elif len(sorted_months_set) == 1:
+        st.markdown("### Revenue on month:")
+        revenue_month = revenue_one_month(resto_id, sorted_months_set[0])
+        st.markdown(f"### Revenue on {sorted_months_set[0]} was {str(round(revenue_month,2))}$")
+
+    st.markdown("***")
+
+    def restaurant_COG(x):  # cost of goods
+        cost_of_goods = round((revenue_month * 0.15), 2)
+        return cost_of_goods
+
+    def restaurant_COL(x):  # cost of labor
+        cost_of_labor = restaurant.loc[restaurant['data_id'] == x, 'cost_of_labor_month']
+        return cost_of_labor.iloc[0]
+
+    def restaurant_FC(x):  # fixed costs
+        fixed_cost = restaurant.loc[restaurant['data_id'] == x, 'fixed_costs_month']
+        return fixed_cost.iloc[0]
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        cog = restaurant_COG(resto_id)
+        st.markdown("Average monthly cost of goods:")
+        st.markdown(f"### {round(cog, 2)}$")
+
+    with col2:
+        col = restaurant_COL(resto_id)
+        st.markdown("Average monthly cost of labor:")
+        st.markdown(f"### {round(col, 2)}$")
+
+    with col3:
+        fc = restaurant_FC(resto_id)
+        st.markdown("Average monthly Fixed cost:")
+        st.markdown(f"### {round(fc, 2)}$")
+
+    st.markdown("***")
+    revenue_by_month = order.loc[order['restaurant_id'] == resto_id].groupby(['month_year'])['total'].sum().to_frame().sort_values('month_year')
+    st.markdown("### Revenue per month in US$")
+    st.line_chart(revenue_by_month)
+
+    st.markdown("***")
+    popular_months = order.loc[order['restaurant_id'] == resto_id].groupby(['month'])['total'].sum().to_frame().sort_values('month')
+    st.markdown("### Most popular months:")
+    st.bar_chart(popular_months)
+
+    dish_grapher = DishGrapher()
+    graph = DishTrendGrapher()
+    resto_dishes = list(graph.dish_per_rest.loc[resto_id].index.unique())
+    st.markdown("***")
+    st.markdown("### Most popular dishes in the restaurant:")
+    fig_pop_by_resto = dish_grapher.popular_by_restaurant(resto_id, "total")
+    st.write(fig_pop_by_resto)
+
+    st.markdown("***")
+    st.markdown("### Revenue of dishes over time:")
+    mydish = resto_dishes[0]
+    mydish = st.selectbox('Select a dish:', resto_dishes)
+    print(mydish)
+    fig_rev_dishes = graph.dish_trend_per_rest(mydish, "total", resto_id)
+    st.write(fig_rev_dishes)
+
+
 
 
 customers = set(order["customer_id"].to_list())
@@ -306,7 +418,8 @@ if modus == 'Global View':
     st.header("Global analysis")
     col1, col2, col3 = st.columns(3)
     rev = round(order["total"].sum())
-    col1.metric(label="Gross revenue", value=f"{rev}$")
+    str_of_number = f"{rev:,}$".replace(",", " ")
+    col1.metric(label="Gross revenue", value=str_of_number)
     col2.metric(label="Number of customer", value=len(customers_list))
     col3.metric(label="Brand loyalty", value=5.78)
     col1, col2, col3 = st.columns(3)
@@ -322,5 +435,5 @@ if modus == 'Global View':
         dishes_map()
 elif modus == 'Restaurant View':
     restaurant_view()
-elif modus == 'Customer page':
+elif modus == 'Customer View':
     customer_page()
