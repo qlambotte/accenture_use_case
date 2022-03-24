@@ -39,28 +39,6 @@ def display_maps():
     feature = st.sidebar.radio('What feature do you want to display?',
                                ('Restaurant revenue (max)', 'Restaurant revenue (min)'))
 
-    date_range_sel = st.sidebar.selectbox('Select a date range:',
-                                          ('All', 'Year', 'Month', 'Week'))
-    if date_range_sel == 'Year':
-        date_range = 365
-    elif date_range_sel == 'Month':
-        date_range = 30
-    elif date_range_sel == 'Week':
-        date_range = 7
-
-    if date_range_sel != 'All':
-        # Range selector
-        format = 'MMM DD, YYYY'  # format output
-        start_date = df_order['creation_date'].min().date()
-        end_date = df_order['creation_date'].max().date() - relativedelta(days=date_range)
-
-        slider = st.sidebar.slider('Select start date:', min_value=start_date, value=start_date, max_value=end_date, format=format)
-        # check in table
-        st.sidebar.table(pd.DataFrame([[slider, slider + relativedelta(days=date_range)]],
-                                      columns=['selected start',
-                                               'end'],
-                                      index=['date']))
-
     st.write(f'Showing: {feature} for {city}')
     max_rev = df_restaurant['revenue'].max()
 
@@ -193,13 +171,33 @@ def restaurant_view():
     if len(resto_id_lst) > 1:
         resto_addr = df_restaurant.loc[df_restaurant['name'] == resto_sel, 'street'].tolist()
         resto_addr_sel = st.sidebar.radio('Multiple found with this name, select address:', resto_addr)
-        resto_id = df_restaurant.loc[(df_restaurant['name'] == resto_sel) & (df_restaurant['street'] == resto_addr_sel), 'data_id'].tolist()[0]
+        resto_id = int(df_restaurant.loc[(df_restaurant['name'] == resto_sel) & (df_restaurant['street'] == resto_addr_sel), 'data_id'].tolist()[0])
     elif len(resto_id_lst) == 1:
-        resto_id = resto_id_lst[0]
+        resto_id = int(resto_id_lst[0])
     st.markdown(f"## {resto_sel}:")
     st.markdown(f"**Adress**: {df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'street'].tolist()[0]}, "
     f"{df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'city'].tolist()[0]}  \n"
     f"**data_id**: {resto_id}")
+
+    st.markdown("***")
+    tot_col1, tot_col2, tot_col3 = st.columns(3)
+
+    def restaurant_revenue_overall(x):  # cost of goods
+        restaurant_revenue_overall = df_restaurant.loc[df_restaurant['data_id'] == x, 'revenue']
+        return restaurant_revenue_overall.sum()
+
+    resto_rev_overall = restaurant_revenue_overall(resto_id)
+    tot_col1.metric(label="Lifetime growth revenue:", value=f"{resto_rev_overall}$")
+
+    cog = df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'cost_of_goods'].iloc[0]
+    colb = df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'cost_of_labor_total'].iloc[0]
+    fct = df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'fixed_costs_total'].iloc[0]
+    roc = round((cog + colb + fct), 2)
+    tot_col2.metric(label="Revenue operational cost profit:", value=f"{roc}$")
+
+    tnp = round((resto_rev_overall - roc), 2)
+    tot_col3.metric(label="Total net profit:", value=f"{tnp}$")
+
     st.markdown("***")
 
     def revenue_one_month(x, y):
@@ -209,14 +207,21 @@ def restaurant_view():
 
     months_set = set(df_order.loc[df_order['restaurant_id'] == resto_id, 'month_year'].tolist())
     sorted_months_set = sorted(months_set)
-    st.markdown("### Select a month:")
-    month_year = st.select_slider(" ", sorted_months_set)
-    revenue_month = revenue_one_month(resto_id, month_year)
-    st.markdown(f"### Revenue on {month_year} was {str(round(revenue_month,2))}$")
+    if len(sorted_months_set) > 1:
+        st.markdown("### Selection of monthly revenue:")
+        month_year = st.select_slider(" ", sorted_months_set)
+        revenue_month = revenue_one_month(resto_id, month_year)
+        st.markdown(f"### Revenue on {month_year} was {str(round(revenue_month,2))}$")
+    elif len(sorted_months_set) == 1:
+        st.markdown("### Revenue on month:")
+        revenue_month = revenue_one_month(resto_id, sorted_months_set[0])
+        st.markdown(f"### Revenue on {sorted_months_set[0]} was {str(round(revenue_month,2))}$")
+        
     st.markdown("***")
+
     def restaurant_COG(x):  # cost of goods
-        cost_of_goods = df_restaurant.loc[df_restaurant['data_id'] == x, 'cost_of_goods']
-        return cost_of_goods.iloc[0]
+        cost_of_goods = round((revenue_month * 0.15), 2)
+        return cost_of_goods
 
     def restaurant_COL(x):  # cost of labor
         cost_of_labor = df_restaurant.loc[df_restaurant['data_id'] == x, 'cost_of_labor_month']
@@ -225,22 +230,22 @@ def restaurant_view():
     def restaurant_FC(x):  # fixed costs
         fixed_cost = df_restaurant.loc[df_restaurant['data_id'] == x, 'fixed_costs_month']
         return fixed_cost.iloc[0]
-    
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
         cog = restaurant_COG(resto_id)
-        st.markdown("Monthly cost of goods:")
+        st.markdown("Average monthly cost of goods:")
         st.markdown(f"### {round(cog, 2)}$")
-    
+
     with col2:
         col = restaurant_COL(resto_id)
-        st.markdown("Monthly cost of labor:")
+        st.markdown("Average monthly cost of labor:")
         st.markdown(f"### {round(col, 2)}$")
 
     with col3:
         fc = restaurant_FC(resto_id)
-        st.markdown("Monthly Fixed cost:")
+        st.markdown("Average monthly Fixed cost:")
         st.markdown(f"### {round(fc, 2)}$")
 
     st.markdown("***")
@@ -253,6 +258,21 @@ def restaurant_view():
     st.markdown("### Most popular months:")
     st.bar_chart(popular_months)
 
+    dish_grapher = dishgraph.DishGrapher()
+    graph = dishgraph.DishTrendGrapher()
+    resto_dishes = list(graph.dish_per_rest.loc[resto_id].index.unique())
+    st.markdown("***")
+    st.markdown("### Most popular dishes in the restaurant:")
+    fig_pop_by_resto = dish_grapher.popular_by_restaurant(resto_id, "total")
+    st.write(fig_pop_by_resto)
+
+    st.markdown("***")
+    st.markdown("### Revenue of dishes over time:")
+    mydish = resto_dishes[0]
+    mydish = st.selectbox('Select a dish:', resto_dishes)
+    print(mydish)
+    fig_rev_dishes = graph.dish_trend_per_rest(mydish, "total", resto_id)
+    st.write(fig_rev_dishes)
 
 
 def customer_page():
