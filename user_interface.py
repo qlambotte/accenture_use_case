@@ -181,7 +181,6 @@ def display_maps():
 
 
 def restaurant_view():
-    # dishes per restaurant
     resto_filter = st.sidebar.text_input("Restarant filter (optional):")
     restolist = []
     if resto_filter != "":
@@ -201,10 +200,60 @@ def restaurant_view():
     st.markdown(f"**Adress**: {df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'street'].tolist()[0]}, "
     f"{df_restaurant.loc[df_restaurant['data_id'] == resto_id, 'city'].tolist()[0]}  \n"
     f"**data_id**: {resto_id}")
+    st.markdown("***")
 
+    def revenue_one_month(x, y):
+        revenue_by_month = df_order.loc[df_order['restaurant_id'] == x].groupby(['month_year'])['total'].sum().to_frame().sort_values('month_year')
+        revenue_one_month = revenue_by_month.loc[y, 'total']
+        return revenue_one_month
+
+    months_set = set(df_order.loc[df_order['restaurant_id'] == resto_id, 'month_year'].tolist())
+    sorted_months_set = sorted(months_set)
+    st.markdown("### Select a month:")
+    month_year = st.select_slider(" ", sorted_months_set)
+    revenue_month = revenue_one_month(resto_id, month_year)
+    st.markdown(f"### Revenue on {month_year} was {str(round(revenue_month,2))}$")
+    st.markdown("***")
+    def restaurant_COG(x):  # cost of goods
+        cost_of_goods = df_restaurant.loc[df_restaurant['data_id'] == x, 'cost_of_goods']
+        return cost_of_goods.iloc[0]
+
+    def restaurant_COL(x):  # cost of labor
+        cost_of_labor = df_restaurant.loc[df_restaurant['data_id'] == x, 'cost_of_labor_month']
+        return cost_of_labor.iloc[0]
+
+    def restaurant_FC(x):  # fixed costs
+        fixed_cost = df_restaurant.loc[df_restaurant['data_id'] == x, 'fixed_costs_month']
+        return fixed_cost.iloc[0]
+    
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        cog = restaurant_COG(resto_id)
+        st.markdown("Monthly cost of goods:")
+        st.markdown(f"### {round(cog, 2)}$")
+    
+    with col2:
+        col = restaurant_COL(resto_id)
+        st.markdown("Monthly cost of labor:")
+        st.markdown(f"### {round(col, 2)}$")
+
+    with col3:
+        fc = restaurant_FC(resto_id)
+        st.markdown("Monthly Fixed cost:")
+        st.markdown(f"### {round(fc, 2)}$")
+
+    st.markdown("***")
     revenue_by_month = df_order.loc[df_order['restaurant_id'] == resto_id].groupby(['month_year'])['total'].sum().to_frame().sort_values('month_year')
     st.markdown("### Revenue per month in US$")
     st.line_chart(revenue_by_month)
+
+    st.markdown("***")
+    popular_months = df_order.loc[df_order['restaurant_id'] == resto_id].groupby(['month'])['total'].sum().to_frame().sort_values('month')
+    st.markdown("### Most popular months:")
+    st.bar_chart(popular_months)
+
+
 
 def customer_page():
     # Allergies
