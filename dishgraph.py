@@ -129,7 +129,6 @@ class DishTrendGrapher:
         """
         fig, ax = plt.subplots()
         self.dish_per_rest.loc[rest_id, dish].set_index('creation_date')[col].plot(color='blue')
-        plt.title(dish)
         plt.xlabel('date')
         plt.ylabel(self.rename_col(col))
         return fig
