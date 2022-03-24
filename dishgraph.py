@@ -78,7 +78,6 @@ class DishGrapher:
         if len(self.sales[(self.sales['name']==dish) & (self.sales['city'] == 'San Francisco')])>0:
             pal.append('red')
 
-
         fig, ax = plt.subplots()
         sns.histplot(x='price', data=self.sales[self.sales['name']==dish], hue='city', binwidth=width, palette=pal)
         title = dish[:50]+'...' if len(dish)>50 else dish
@@ -96,7 +95,6 @@ class DishTrendGrapher:
         self.dish_per_month = pd.read_csv('./data/dish_per_month.csv').set_index('name')
         self.dish_per_rest = pd.read_csv('./data/dish_per_rest.csv').set_index(['restaurant_id','name'])
         ### load dataframe resampled by month
-
 
     def rename_col(self, col: str):
         if col == 'amount':
