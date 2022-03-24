@@ -6,10 +6,10 @@ import seaborn as sns
 class DishGrapher:
 
     def __init__(self):
-        self.sales = pd.read_csv('./data/order_item.csv', usecols=['restaurant_id', 'name', 'amount', 'price', 'total', 'city']) 
+        self.sales = pd.read_csv('./data/order_item.csv', usecols=['restaurant_id', 'name', 'amount', 'price', 'total', 'city'])
         ### load df_sales [amount, revenue, name, city, restaurant_id]
         ### load df_sales by restaurant [restaurant_id, name, amount, revenue]
-    
+
     def rename_col(self, col: str):
         if col == 'amount':
             return 'amount sold'
@@ -26,7 +26,7 @@ class DishGrapher:
         """
         df = self.sales[self.sales['city']==city]
         return df[[col,'name']].groupby('name').sum().sort_values(col,ascending=False)
-        
+
 
     def popular_by_restaurant(self, restaurant_id: int, col: str):
         # needs amount, name, restaurant_id
@@ -36,7 +36,7 @@ class DishGrapher:
         :param restaurant_id: int that represent restaurant_id
         :param col: str represent either amount ('amount') or revenue ('total')
         """
-        
+
         am_table = self.sales.groupby(['restaurant_id', 'name']).sum().loc[restaurant_id][[col]]
         am_table = am_table.reset_index()
         am_table['abbrev_name'] = am_table['name'].map(lambda x: x[:70]+'...' if len(x)>70 else x)
@@ -54,7 +54,7 @@ class DishGrapher:
         # needs name, price
         '''
         Function that outputs a graph of the distribution of a dish
-        
+
         param dish: str that represents name of dish
         '''
         dish_price_distribution = self.sales[self.sales['name']==dish].groupby('price').sum()
@@ -77,7 +77,6 @@ class DishGrapher:
             pal.append('blue')
         if len(self.sales[(self.sales['name']==dish) & (self.sales['city'] == 'San Francisco')])>0:
             pal.append('red')
-        
 
         fig, ax = plt.subplots()
         sns.histplot(x='price', data=self.sales[self.sales['name']==dish], hue='city', binwidth=width, palette=pal)
@@ -85,7 +84,7 @@ class DishGrapher:
         plt.title(f'Distribution on of the price of {title} \n Average price: ${avg_price}')
         plt.ylabel('Amount sold')
         plt.xlabel('Price of dish')
-        
+
         return fig
 
 
@@ -97,7 +96,6 @@ class DishTrendGrapher:
         self.dish_per_rest = pd.read_csv('./data/dish_per_rest.csv').set_index(['restaurant_id','name'])
         ### load dataframe resampled by month
 
-    
     def rename_col(self, col: str):
         if col == 'amount':
             return 'amount sold'
@@ -129,18 +127,6 @@ class DishTrendGrapher:
         """
         fig, ax = plt.subplots()
         self.dish_per_rest.loc[rest_id, dish].set_index('creation_date')[col].plot(color='blue')
-        plt.title(dish)
         plt.xlabel('date')
         plt.ylabel(self.rename_col(col))
         return fig
-
-    
-
-
-
-    
-
-    
-
-
-    
