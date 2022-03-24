@@ -194,7 +194,7 @@ def restaurant_view():
     colb = restaurant.loc[restaurant['data_id'] == resto_id, 'cost_of_labor_total'].iloc[0]
     fct = restaurant.loc[restaurant['data_id'] == resto_id, 'fixed_costs_total'].iloc[0]
     roc = round((cog + colb + fct), 2)
-    tot_col2.metric(label="Revenue operational cost profit:", value=f"{roc}$")
+    tot_col2.metric(label="Revenue operational cost:", value=f"{roc}$")
 
     tnp = round((resto_rev_overall - roc), 2)
     tot_col3.metric(label="Total net profit:", value=f"{tnp}$")
@@ -366,7 +366,7 @@ def dishes_map():
 
     st.header('Information on Dishes')
 
-    city = st.sidebar.selectbox("Select a city.", ['New York', 'San Francisco'])
+    city = st.sidebar.radio("Select a city.", ['New York', 'San Francisco'])
     col_type = st.sidebar.selectbox("Select by type", ['amount sold', 'revenue'])
     if col_type == 'amount sold':
         col = 'amount'
