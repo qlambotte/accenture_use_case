@@ -1,0 +1,9 @@
+,data_id,severity,name
+0,7,medium,soy
+5,5,high,tree nuts
+6,2,high,peanuts
+7,6,medium,wheat
+10,4,high,shellfish
+11,1,low,eggs
+12,0,low,cow's milk
+13,3,low,fish
