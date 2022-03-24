@@ -40,28 +40,6 @@ def display_maps():
     feature = st.sidebar.radio('What feature do you want to display?',
                                ('Restaurant revenue (max)', 'Restaurant revenue (min)'))
 
-    date_range_sel = st.sidebar.selectbox('Select a date range:',
-                                          ('All', 'Year', 'Month', 'Week'))
-    if date_range_sel == 'Year':
-        date_range = 365
-    elif date_range_sel == 'Month':
-        date_range = 30
-    elif date_range_sel == 'Week':
-        date_range = 7
-
-    if date_range_sel != 'All':
-        # Range selector
-        format = 'MMM DD, YYYY'  # format output
-        start_date = order['creation_date'].min().date()
-        end_date = order['creation_date'].max().date() - relativedelta(days=date_range)
-
-        slider = st.sidebar.slider('Select start date:', min_value=start_date, value=start_date, max_value=end_date, format=format)
-        # check in table
-        st.sidebar.table(pd.DataFrame([[slider, slider + relativedelta(days=date_range)]],
-                                      columns=['selected start',
-                                               'end'],
-                                      index=['date']))
-
     st.write(f'Showing: {feature} for {city}')
     max_rev = restaurant['revenue'].max()
 
@@ -69,7 +47,7 @@ def display_maps():
                        data=restaurant,
                        get_position=['lon', 'lat'],
                        radius=80,
-                       elevation_scale=0.1,
+                       elevation_scale=0.06,
                        auto_highlight=True,
                        pickable=True,
                        get_elevation=['revenue'],
@@ -79,7 +57,7 @@ def display_maps():
                        data=restaurant,
                        get_position=['lon', 'lat'],
                        radius=80,
-                       elevation_scale=0.1,
+                       elevation_scale=0.06,
                        auto_highlight=True,
                        pickable=True,
                        get_elevation=[f'{max_rev} - revenue'],
@@ -89,7 +67,7 @@ def display_maps():
                        data=restaurant,
                        get_position=['lon', 'lat'],
                        radius=10000,
-                       elevation_scale=20,
+                       elevation_scale=5,
                        auto_highlight=True,
                        pickable=True,
                        get_elevation=['revenue'],
@@ -100,7 +78,7 @@ def display_maps():
                        data=restaurant,
                        get_position=['lon', 'lat'],
                        radius=10000,
-                       elevation_scale=20,
+                       elevation_scale=5,
                        auto_highlight=True,
                        pickable=True,
                        get_elevation=[f'{max_rev} - revenue'],
@@ -209,7 +187,7 @@ def restaurant_view():
         restaurant_revenue_overall = restaurant.loc[restaurant['data_id'] == x, 'revenue']
         return restaurant_revenue_overall.sum()
 
-    resto_rev_overall = round(restaurant_revenue_overall(resto_id),2)
+    resto_rev_overall = round(restaurant_revenue_overall(resto_id), 2)
     tot_col1.metric(label="Lifetime gross revenue:", value=f"{resto_rev_overall}$")
 
     cog = restaurant.loc[restaurant['data_id'] == resto_id, 'cost_of_goods'].iloc[0]
@@ -298,26 +276,25 @@ def restaurant_view():
     st.write(fig_rev_dishes)
 
 
-
-
 customers = set(order["customer_id"].to_list())
 
 def customer_page():
     # Allergies
-    customer = st.sidebar.selectbox("Select a customer.", customers)
+    customer = st.sidebar.selectbox("Select a customer.", customers_list)
     st.header(
         f"Details on customer {customer}"
     )
+
     def buisiness_insights(customer_id, data):
-        clv = round(data["total"].sum(),2)
+        clv = round(data["total"].sum(), 2)
         crp = data["total"].count()
-        cab = round(clv/crp,2)
+        cab = round(clv / crp, 2)
         return {
             "clv": clv,
             "crp": crp,
             "cab": cab
             }
-    orders = order[order["customer_id"]==customer]
+    orders = order[order["customer_id"] == customer]
     bi = buisiness_insights(customer, orders)
     col1, col2, col3 = st.columns(3)
     col1.metric(label="Customer Lifetime Value", value=f"{bi['clv']}$")
@@ -325,7 +302,7 @@ def customer_page():
     col3.metric(label="Customer average order", value=f"{bi['cab']}$/o")
 
     st.subheader("Allergy information")
-    allergies = allergy_customer[allergy_customer["customer_id"]==customer]["allergy_id"].to_list()
+    allergies = allergy_customer[allergy_customer["customer_id"] == customer]["allergy_id"].to_list()
     if len(allergies) == 0:
         st.write("This customer has no known allergy.")
     elif len(allergies) == 1:
@@ -333,9 +310,9 @@ def customer_page():
         name, severity = al["name"].iloc[0], al["severity"].iloc[0]
         st.write(f"This customer is allergic to {name}, which has {severity} severity.")
     else:
-        st.write(f"This customer has the following allergies:")
+        st.write("This customer has the following allergies:")
         aller = allergy[allergy["data_id"].isin(allergies)][["name", "severity"]].reset_index(drop=True)
-        aller.index +=1
+        aller.index += 1
         st.table(aller)
     st.subheader("Spending details")
     restaurants = set(orders["restaurant_id"].to_list())
@@ -353,12 +330,12 @@ def customer_page():
     restaurants_names.append("All")
     rest = st.selectbox("Select a restaurant", restaurants_names)
     if rest == "All":
-        tot = round(orders["total"].sum(),2)
+        tot = round(orders["total"].sum(), 2)
         st.write(f"Overall, customer {customer} spent {tot}$.")
     else:
-        rest_id = restaurants.intersection(set(restaurant[restaurant["name"]==rest]["data_id"].to_list()))
-        orders = orders[orders["restaurant_id"]==rest_id.pop()]
-        tot = round(orders["total"].sum(),2)
+        rest_id = restaurants.intersection(set(restaurant[restaurant["name"] == rest]["data_id"].to_list()))
+        orders = orders[orders["restaurant_id"] == rest_id.pop()]
+        tot = round(orders["total"].sum(), 2)
         no_orders = orders.shape[0]
         if no_orders == 1:
             orders_string = "one order"
@@ -367,9 +344,9 @@ def customer_page():
         st.write(f"Customer {customer} spent {tot}$ in restaurant {rest}, with {orders_string}.")
     orders_id = orders["data_id"].to_list()
     order_to_detail = st.selectbox("Select an order", orders_id)
-    order_details = order_item[order_item["order_id"]==order_to_detail]
+    order_details = order_item[order_item["order_id"] == order_to_detail]
     restaurant_id = order_details["restaurant_id"].iloc[0]
-    restaurant_details = restaurant[restaurant["data_id"]==restaurant_id]
+    restaurant_details = restaurant[restaurant["data_id"] == restaurant_id]
     restaurant_name = restaurant_details["name"].iloc[0]
     city = restaurant_details["city"].iloc[0]
     date = order_details["creation_date"].iloc[0]
@@ -378,11 +355,11 @@ def customer_page():
         no_items = "one item"
     else:
         no_items = f"{n} items"
-    tot = round(order_details["total"].sum(),2)
+    tot = round(order_details["total"].sum(), 2)
     st.write(f"This order was made in {restaurant_name}, {city}, on {date}, for a total of {tot}$. It contains {no_items}.")
     df = order_details[["name", "price", "amount", "total"]]
     df = df.reset_index(drop=True)
-    df.index +=1
+    df.index += 1
     st.write(df)
 
 def dishes_map():
@@ -403,7 +380,7 @@ def dishes_map():
     st.write(graph.popular(city, col))
 
     dish = st.sidebar.selectbox("Select by dish", list_of_dishes)
-    abbrev_dish  = dish[:50]+'...' if len(dish)>50 else dish
+    abbrev_dish = dish[:50] + '...' if len(dish) > 50 else dish
     st.subheader(f'Facts about {abbrev_dish}')
 
     col1, col2 = st.columns(2)
